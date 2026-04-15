@@ -1,0 +1,105 @@
+name: inception
+
+services:
+
+  # ─────────────────────────────────────────────
+  # MariaDB — base de données
+  # ─────────────────────────────────────────────
+  mariadb:
+    container_name: mariadb
+    build: ./requirements/mariadb
+    restart: unless-stopped
+    env_file: .env
+    # Secrets montés dans /run/secrets/ à l'intérieur du container
+    secrets:
+      - db_password
+      - db_root_password
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - inception
+    # Docker teste régulièrement si MariaDB répond vraiment.
+    # WordPress ne démarrera que quand ce healthcheck passe (service_healthy).
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -u ${MYSQL_USER} -p$(cat /run/secrets/db_password) --silent"]
+      interval: 30s     # vérifie toutes les 30s une fois démarré
+      timeout: 3s       # la commande doit répondre en moins de 3s
+      retries: 5        # 5 échecs consécutifs → container unhealthy
+      start_period: 3s  # délai de grâce initial avant de compter les échecs
+      start_interval: 2s # pendant le start_period, vérifie toutes les 2s
+
+  # ─────────────────────────────────────────────
+  # WordPress + PHP-FPM
+  # ─────────────────────────────────────────────
+  wordpress:
+    container_name: wordpress
+    build: ./requirements/wordpress
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy  # attend que MariaDB soit healthy avant de démarrer
+    env_file: .env
+    secrets:
+      - db_password
+      - credentials
+      - wp_user_password
+    volumes:
+      - wp_data:/var/www/wordpress
+    networks:
+      - inception
+
+  # ─────────────────────────────────────────────
+  # NGINX — reverse proxy + TLS
+  # ─────────────────────────────────────────────
+  nginx:
+    container_name: nginx
+    build: ./requirements/nginx
+    restart: unless-stopped
+    depends_on:
+      - wordpress
+    ports:
+      - "443:443"
+    volumes:
+      - wp_data:/var/www/wordpress
+    networks:
+      - inception
+
+# ─────────────────────────────────────────────
+# Secrets — fichiers montés en lecture seule
+# dans /run/secrets/<nom> dans chaque container
+# Les chemins sont relatifs à ce fichier (srcs/)
+# ─────────────────────────────────────────────
+secrets:
+  db_password:
+    file: ../secrets/db_password.txt
+  db_root_password:
+    file: ../secrets/db_root_password.txt
+  credentials:
+    file: ../secrets/credentials.txt
+  wp_user_password:
+    file: ../secrets/wp_user_password.txt
+
+# ─────────────────────────────────────────────
+# Volumes nommés
+# ─────────────────────────────────────────────
+volumes:
+  db_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/kporceil/data/db
+
+  wp_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/kporceil/data/wordpress
+
+# ─────────────────────────────────────────────
+# Réseau interne Docker
+# ─────────────────────────────────────────────
+networks:
+  inception:
+    driver: bridge
