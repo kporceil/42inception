@@ -91,4 +91,4 @@ fi
 # exec remplace le shell par mysqld → mysqld devient PID 1
 # ------------------------------------------------------------
 echo "[MariaDB] Starting MariaDB server..."
-exec mysqld --user=mysql --datadir=/var/lib/mysql --bind-address=0.0.0.0
+exec mysqld --user=mysql --datadir=/var/lib/mysql --bind-address=0.0.0.0 --port=3306
