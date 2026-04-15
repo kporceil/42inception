@@ -10,8 +10,9 @@ RUN apk add --no-cache mariadb mariadb-client
 # et donne les droits à l'utilisateur mysql
 RUN mkdir -p /run/mysqld && chown -R mysql:mysql /run/mysqld
 
-# Copie la config MariaDB
-COPY conf/my.cnf /etc/my.cnf.d/inception.cnf
+# Écrase la config Alpine (qui active skip-networking par défaut)
+RUN rm -f /etc/my.cnf /etc/my.cnf.d/*.cnf
+COPY conf/my.cnf /etc/my.cnf
 
 # Copie notre script d'initialisation dans l'image
 COPY tools/init_db.sh /usr/local/bin/init_db.sh
