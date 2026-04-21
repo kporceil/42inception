@@ -3,10 +3,10 @@ set -e
 
 WP_PATH="/var/www/wordpress"
 
-# WP_CLI_ALLOW_ROOT=1 évite de passer --allow-root sur chaque commande wp
 export WP_CLI_ALLOW_ROOT=1
 
-# Lecture des secrets depuis les fichiers montés dans /run/secrets/
+wp() { php -d memory_limit=512M /usr/local/bin/wp "$@"; }
+
 MYSQL_PASSWORD=$(cat /run/secrets/db_password)
 WP_ADMIN_PASSWORD=$(cat /run/secrets/credentials)
 WP_USER_PASSWORD=$(cat /run/secrets/wp_user_password)
@@ -34,7 +34,6 @@ if [ ! -f "${WP_PATH}/wp-config.php" ]; then
         --admin_email="${WP_ADMIN_EMAIL}" \
         --skip-email
 
-    # Crée un utilisateur normal (non-admin)
     wp user create "${WP_USER}" "${WP_USER_EMAIL}" \
         --path="${WP_PATH}" \
         --role=author \
